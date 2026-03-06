@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_CUSTOMER
+  RESOLVED
+  CLOSED
+  AUTO_CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  SUBSCRIPTION_CANCELLATION
+  REFUND_REQUEST
+  FLASHCARD_ISSUES
+  ACCOUNT_ISSUES
+  BILLING_INVOICE
+  CONTENT_UPLOAD
+  TECHNICAL_ERRORS
+  LANGUAGE_ISSUES
+  DATA_LOSS
+  QUIZ_ISSUES
+  PODCAST_ISSUES
+  MINDMAP_ISSUES
+  MOCK_EXAM_ISSUES
+  SUMMARY_ISSUES
+  GENERAL_HOW_TO
+  MISUNDERSTANDING
+  GARBAGE
+  OTHER
+}
+
+enum MessageSource {
+  INBOUND_EMAIL
+  OUTBOUND_EMAIL
+  OUTBOUND_OUTLOOK
+  INTERNAL_NOTE
+  AI_DRAFT
+}
+
+model TeamMember {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  role            String    @default("support")
+  avatarUrl       String?
+  assignedTickets Ticket[]  @relation("AssignedTickets")
+  messages        Message[]
+  createdAt       DateTime  @default(now())
+}
+
+model Ticket {
+  id                    String          @id @default(cuid())
+  externalId            String?         @unique
+  subject               String
+  status                TicketStatus    @default(OPEN)
+  priority              TicketPriority  @default(MEDIUM)
+  category              TicketCategory?
+  tags                  String[]
+
+  customerEmail         String?
+  customerName          String?
+
+  language              String?
+  translatedSubject     String?
+  aiSummary             String?
+  aiConfidence          Float?
+  aiSuggestedAssignee   String?
+
+  outlookMessageId      String?         @unique
+  outlookConversationId String?
+
+  source                String?
+
+  assignee              TeamMember?     @relation("AssignedTickets", fields: [assigneeId], references: [id])
+  assigneeId            String?
+  messages              Message[]
+  enrichments           Enrichment[]
+
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([assigneeId])
+  @@index([createdAt])
+}
+
+model Message {
+  id               String        @id @default(cuid())
+  body             String
+  bodyTranslated   String?
+  source           MessageSource
+
+  senderEmail      String?
+  senderName       String?
+  teamMember       TeamMember?   @relation(fields: [teamMemberId], references: [id])
+  teamMemberId     String?
+
+  outlookMessageId String?       @unique
+
+  ticket           Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId         String
+
+  createdAt        DateTime      @default(now())
+}
+
+model Enrichment {
+  id        String   @id @default(cuid())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId  String
+  type      String
+  data      Json
+  fetchedAt DateTime @default(now())
+}
