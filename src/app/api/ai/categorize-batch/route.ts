@@ -46,6 +46,15 @@ export async function POST() {
           ? (result.priority as TicketPriority)
           : ticket.priority;
 
+        // Auto-assign based on AI-suggested role if unassigned
+        let assigneeId: string | undefined;
+        if (!ticket.assigneeId && result.suggested_assignee_role) {
+          const match = await prisma.teamMember.findFirst({
+            where: { role: result.suggested_assignee_role },
+          });
+          if (match) assigneeId = match.id;
+        }
+
         await prisma.ticket.update({
           where: { id: ticket.id },
           data: {
@@ -55,6 +64,7 @@ export async function POST() {
             aiSummary: result.summary_en,
             aiConfidence: result.confidence,
             aiSuggestedAssignee: result.suggested_assignee_role,
+            ...(assigneeId ? { assigneeId, status: "IN_PROGRESS" } : {}),
           },
         });
 

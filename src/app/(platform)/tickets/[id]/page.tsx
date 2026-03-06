@@ -350,7 +350,23 @@ export default function TicketDetailPage({
         body: JSON.stringify({ ticketId: id }),
       });
       if (res.ok) {
-        fetchTicket();
+        // Re-fetch ticket to get updated category
+        const updated = await fetch(`/api/tickets/${id}`).then((r) => r.json());
+        setTicket(updated);
+
+        // Auto-assign based on default assignee mapping
+        const defaultAssignee = updated.category
+          ? appSettings.triage.defaultAssigneeMap[updated.category]
+          : null;
+        if (defaultAssignee && !updated.assigneeId) {
+          await fetch(`/api/tickets/${id}/assign`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assigneeId: defaultAssignee }),
+          });
+          fetchTicket();
+        }
+
         toast.success("Ticket categorized by AI");
       } else {
         const err = await res.json();

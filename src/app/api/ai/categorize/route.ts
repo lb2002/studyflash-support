@@ -44,6 +44,15 @@ export async function POST(request: NextRequest) {
       ? (result.priority as TicketPriority)
       : ticket.priority;
 
+    // Auto-assign based on AI-suggested role if ticket is unassigned
+    let assigneeId: string | undefined;
+    if (!ticket.assigneeId && result.suggested_assignee_role) {
+      const match = await prisma.teamMember.findFirst({
+        where: { role: result.suggested_assignee_role },
+      });
+      if (match) assigneeId = match.id;
+    }
+
     await prisma.ticket.update({
       where: { id: ticketId },
       data: {
@@ -53,10 +62,11 @@ export async function POST(request: NextRequest) {
         aiSummary: result.summary_en,
         aiConfidence: result.confidence,
         aiSuggestedAssignee: result.suggested_assignee_role,
+        ...(assigneeId ? { assigneeId, status: "IN_PROGRESS" } : {}),
       },
     });
 
-    return NextResponse.json({ success: true, result });
+    return NextResponse.json({ success: true, result, assigneeId });
   } catch (error) {
     console.error("Categorization error:", error);
     return NextResponse.json(

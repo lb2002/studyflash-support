@@ -461,6 +461,18 @@ export default function TriagePage() {
           if (refRes.ok && guard()) {
             updatedTicket = await refRes.json();
             setTicket(updatedTicket);
+
+            // Auto-assign based on default assignee mapping
+            const defaultAssignee = updatedTicket.category
+              ? settings.triage.defaultAssigneeMap[updatedTicket.category]
+              : null;
+            if (defaultAssignee && !updatedTicket.assigneeId) {
+              fetch(`/api/tickets/${ticketId}/assign`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ assigneeId: defaultAssignee }),
+              }).catch(() => {});
+            }
           }
           setCategorizeStatus("done");
         } else {
@@ -887,64 +899,50 @@ export default function TriagePage() {
             </div>
           ) : (
             <div className="space-y-4 pb-4">
-              {/* Ticket info card */}
-              <Card>
-                <CardContent className="pt-5 pb-4">
-                  <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <span className="font-mono text-sm text-muted-foreground">
-                      #{ticket.externalId}
-                    </span>
-                    <Badge
-                      className={`text-xs ${STATUS_COLORS[ticket.status] || ""}`}
-                      variant="secondary"
-                    >
-                      {ticket.status.replace(/_/g, " ")}
-                    </Badge>
-                    <Badge
-                      className={`text-xs ${PRIORITY_COLORS[ticket.priority] || ""}`}
-                      variant="secondary"
-                    >
-                      {ticket.priority}
-                    </Badge>
-                    {ticket.language && (
-                      <Badge variant="outline" className="text-xs">
-                        {LANG_LABELS[ticket.language] || ticket.language}
-                      </Badge>
-                    )}
-                    {ticket.category && (
-                      <Badge variant="outline" className="text-xs">
-                        {formatCategory(ticket.category)}
-                      </Badge>
-                    )}
-                    {ticket.aiConfidence != null && (
-                      <span className="text-xs text-muted-foreground">
-                        Confidence: {Math.round(ticket.aiConfidence * 100)}%
-                      </span>
-                    )}
-                    {categorizeStatus === "loading" && (
-                      <span className="flex items-center text-xs text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                        Categorizing...
-                      </span>
-                    )}
-                  </div>
-                  <h2 className="font-semibold">
+              {/* Ticket info header */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    #{ticket.externalId}
+                  </span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-sm font-medium flex-1 min-w-0 truncate">
                     {ticket.aiSummary || ticket.subject}
-                  </h2>
-                  {ticket.aiSummary &&
-                    ticket.subject !== ticket.aiSummary && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Original: {ticket.subject}
-                      </p>
-                    )}
-                  <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                    <span>
-                      {ticket.customerName || ticket.customerEmail || "Unknown"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Badge
+                    className={`text-[10px] px-1.5 py-0 ${PRIORITY_COLORS[ticket.priority] || ""}`}
+                    variant="secondary"
+                  >
+                    {ticket.priority}
+                  </Badge>
+                  {ticket.language && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      {LANG_LABELS[ticket.language] || ticket.language}
+                    </Badge>
+                  )}
+                  {ticket.category && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      {formatCategory(ticket.category)}
+                    </Badge>
+                  )}
+                  {ticket.aiConfidence != null && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {Math.round(ticket.aiConfidence * 100)}% confidence
                     </span>
-                    <span>{timeAgo(ticket.createdAt)}</span>
-                  </div>
-                </CardContent>
-              </Card>
+                  )}
+                  {categorizeStatus === "loading" && (
+                    <span className="flex items-center text-[10px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      Categorizing...
+                    </span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground ml-auto">
+                    {ticket.customerName || ticket.customerEmail || "Unknown"} · {timeAgo(ticket.createdAt)}
+                  </span>
+                </div>
+              </div>
 
               {/* Messages */}
               <div className="space-y-3">
